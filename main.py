@@ -83,6 +83,13 @@ class ClockEventCreate(BaseModel):
     DATE: Optional[date] = None
 
 
+class EmployeeSummary(BaseModel):
+    pernr: str
+    employee: Optional[Dict[str, Any]]
+    holidays: List[Dict[str, Any]]
+    clockings: List[Dict[str, Any]]
+
+
 app = FastAPI(title="DHR API (JSON-backed)", version="1.0.0")
 
 
@@ -189,6 +196,34 @@ async def add_clock_in(pernr: str, payload: ClockEventCreate) -> Dict[str, Any]:
 async def add_clock_out(pernr: str, payload: ClockEventCreate) -> Dict[str, Any]:
     event_date = payload.DATE or date.today()
     return _append_clock_event(pernr, "CLOCKED_OUT", event_date)
+
+
+@app.get("/employee-summary/{pernr}", response_model=EmployeeSummary)
+async def get_employee_summary(pernr: str) -> EmployeeSummary:
+    """
+    Aggregate view for a single employee:
+    - Basic employee master data from employee.json
+    - All holiday records from holidays.json
+    - All clocking records from clocking.json
+    """
+    employees = _load_json_file(EMPLOYEE_FILE)
+    employee = next((e for e in employees if str(e.get("PERNR")) == pernr), None)
+
+    if employee is None:
+        raise HTTPException(status_code=404, detail=f"Employee {pernr} not found")
+
+    holidays = [h for h in _load_json_file(HOLIDAYS_FILE) if str(h.get("PERNR")) == pernr]
+    holidays.sort(key=lambda h: h.get("BEGDA", ""))
+
+    clockings = [c for c in _load_json_file(CLOCKING_FILE) if str(c.get("PERNR")) == pernr]
+    clockings.sort(key=lambda c: c.get("DATE", ""))
+
+    return EmployeeSummary(
+        pernr=pernr,
+        employee=employee,
+        holidays=holidays,
+        clockings=clockings,
+    )
 
 
 if __name__ == "__main__":
