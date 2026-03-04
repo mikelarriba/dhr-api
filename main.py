@@ -11,13 +11,22 @@ from pydantic import BaseModel, Field
 load_dotenv()
 
 
-# JSON data files (stored in repo root)
+# Base directory where this file lives (works on Render and locally)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# JSON data files (stored alongside main.py, regardless of CWD)
 EMPLOYEE_FILE = "employee.json"
 HOLIDAYS_FILE = "holidays.json"
 CLOCKING_FILE = "clocking.json"
 
 
-def _load_json_file(path: str) -> List[Dict[str, Any]]:
+def _data_path(filename: str) -> str:
+    """Build an absolute path to a data file next to this module."""
+    return os.path.join(BASE_DIR, filename)
+
+
+def _load_json_file(filename: str) -> List[Dict[str, Any]]:
+    path = _data_path(filename)
     if not os.path.exists(path):
         return []
     with open(path, "r", encoding="utf-8") as f:
@@ -30,7 +39,8 @@ def _load_json_file(path: str) -> List[Dict[str, Any]]:
         return data
 
 
-def _save_json_file(path: str, data: List[Dict[str, Any]]) -> None:
+def _save_json_file(filename: str, data: List[Dict[str, Any]]) -> None:
+    path = _data_path(filename)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
@@ -56,9 +66,10 @@ def _paginate(items: List[Dict[str, Any]], page: int, page_size: int) -> Dict[st
 
 
 def _ensure_files_exist() -> None:
-    for path in (EMPLOYEE_FILE, HOLIDAYS_FILE, CLOCKING_FILE):
+    for filename in (EMPLOYEE_FILE, HOLIDAYS_FILE, CLOCKING_FILE):
+        path = _data_path(filename)
         if not os.path.exists(path):
-            _save_json_file(path, [])
+            _save_json_file(filename, [])
 
 
 class HolidayCreate(BaseModel):
